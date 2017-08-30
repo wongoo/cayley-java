@@ -3,15 +3,6 @@ package cayley.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +14,8 @@ import cayley.model.CayleyListResult;
 import cayley.model.CayleyResult;
 import cayley.model.CayleyWriteResult;
 import cayley.model.Quad;
+import cayley.util.CayleyHttpUtil;
+import cayley.util.CayleyReflectionUtil;
 
 /**
  * @author wangoo
@@ -33,6 +26,7 @@ public class CayleyClient {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private String writeUrl;
+    private String deleteUrl;
     private String gremlinUrl;
 
     private String url;
@@ -53,14 +47,13 @@ public class CayleyClient {
         this.version = version;
         this.gremlinUrl = url + "/api/" + version + "/query/gremlin";
         this.writeUrl = url + "/api/" + version + "/write";
+        this.deleteUrl = url + "/api/" + version + "/delete";
     }
 
-    public String query(String command) throws CayleyException {
-        return send(gremlinUrl, command);
-    }
+    /** ---------------------- write ---------------------------------------- */
 
     private String write(String data) throws CayleyException {
-        return send(writeUrl, data);
+        return CayleyHttpUtil.send(writeUrl, data);
     }
 
     public String write(Quad quad) throws CayleyException {
@@ -76,22 +69,64 @@ public class CayleyClient {
         parseResult(write(new Quad(subject, predicate, object)), CayleyWriteResult.class);
     }
 
-    public List<String> queryPredicateFrom(String subject, String predicate)
-            throws CayleyException {
-        String query = query(String.format("g.V('%s').Out('%s').All()", subject, predicate));
-        CayleyListResult result = parseResult(query, CayleyListResult.class);
-        List<CayleyListItem> list = result.getResult();
-        if (list == null || list.size() == 0) {
-            return new ArrayList<>(0);
-        } else {
-            List<String> ids = new ArrayList<>(list.size());
-            list.stream().forEach(e -> {
-                ids.add(e.getId());
-            });
-            return ids;
-        }
+    /** ---------------------- delete ---------------------------------------- */
+
+    private String delete(String data) throws CayleyException {
+        return CayleyHttpUtil.send(deleteUrl, data);
     }
 
+    public String delete(Quad quad) throws CayleyException {
+        return delete(Arrays.asList(quad));
+    }
+
+    public String delete(List<Quad> quads) throws CayleyException {
+        return delete(quads.toString());
+    }
+
+    public void deletePredicate(String subject, String predicate, String object)
+            throws CayleyException {
+        delete(new Quad(subject, predicate, object));
+    }
+
+    /** ---------------------- query ---------------------------------------- */
+
+    public String query(String command) throws CayleyException {
+        return CayleyHttpUtil.send(gremlinUrl, command);
+    }
+
+    public List<String> queryPredicate(String subject, String predicate) throws CayleyException {
+        return queryList(String.format("g.V('%s').Out('%s').All()", subject, predicate));
+    }
+
+    public <T> T queryObject(String subject, Class<T> clazz) throws CayleyException {
+        CayleyListResult cayleyListResult =
+                queryCayleyList(String.format("g.V('%s').Out(null,'predicate').All()", subject));
+        return collectPredicateAsObject(cayleyListResult, clazz);
+    }
+
+    public List<String> queryList(String command) throws CayleyException {
+        return collectObjectIds(queryCayleyList(command));
+    }
+
+    public CayleyListResult queryCayleyList(String command) throws CayleyException {
+        String query = query(command);
+        return parseResult(query, CayleyListResult.class);
+    }
+
+    /** ---------------------- exists ---------------------------------------- */
+
+    public boolean exists(String object) throws CayleyException {
+        return queryList(String.format("g.V('%s').All()", object)) != null;
+    }
+
+    public boolean existPredicate(String subject, String predicate, String object)
+            throws CayleyException {
+        String command =
+                String.format("g.V('%s').Out('%s').Is('%s').All()", subject, predicate, object);
+        return queryList(command) != null;
+    }
+
+    /** ---------------------- other ---------------------------------------- */
     private <T extends CayleyResult> T parseResult(String value, Class<T> clazz)
             throws CayleyException {
         try {
@@ -109,32 +144,35 @@ public class CayleyClient {
         }
     }
 
-    private String send(String url, String command) throws CayleyException {
-        CloseableHttpClient httpclient = HttpClients.createDefault();
-        try {
-            HttpPost post = new HttpPost(url);
-            StringEntity stringEntity = new StringEntity(command);
-            post.setEntity(stringEntity);
-
-            CloseableHttpResponse response = httpclient.execute(post);
-            HttpEntity entity = response.getEntity();
-            String result = EntityUtils.toString(entity);
-
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode != 200) {
-                throw new CayleyException("unexpected http status " + statusCode + "," + result);
-            } else {
-                return result;
-            }
-        } catch (IOException e) {
-            throw new CayleyException(e.getMessage(), e);
-        } finally {
-            try {
-                httpclient.close();
-            } catch (IOException ex) {
-            }
+    private List<String> collectObjectIds(CayleyListResult result) {
+        if (result == null) {
+            return null;
+        }
+        List<CayleyListItem> list = result.getResult();
+        if (list == null || list.size() == 0) {
+            return new ArrayList<>(0);
+        } else {
+            List<String> ids = new ArrayList<>(list.size());
+            list.stream().forEach(e -> {
+                ids.add(e.getId());
+            });
+            return ids;
         }
     }
 
+    private <T> T collectPredicateAsObject(CayleyListResult result, Class<T> clazz)
+            throws CayleyException {
+        try {
+            T t = clazz.newInstance();
+            if (result != null) {
+                result.getResult().stream().forEach(e -> {
+                    CayleyReflectionUtil.set(t, e.getPredicate(), e.getId());
+                });
+            }
+            return t;
+        } catch (Exception e) {
+            throw new CayleyException(e);
+        }
+    }
 
 }

@@ -50,7 +50,7 @@ public class CayleyClientTest {
             System.out.println(e.getMessage());
         }
         try {
-            List<String> ids = client.queryPredicateFrom("x", "f");
+            List<String> ids = client.queryPredicate("x", "f");
             System.out.println(ids);
         } catch (CayleyException e) {
             Assert.fail(e.getMessage());

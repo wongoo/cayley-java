@@ -7,6 +7,13 @@
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
+    <distributionManagement>
+        <repository>
+            <id>bintray-gelnyang-cayley-java</id>
+            <name>gelnyang-cayley-java</name>
+            <url>https://api.bintray.com/maven/gelnyang/cayley-java/cayley/;publish=1</url>
+        </repository>
+    </distributionManagement>
 
     <dependencies>
         <dependency>
@@ -39,14 +46,6 @@
             <version>4.12</version>
         </dependency>
     </dependencies>
-
-    <distributionManagement>
-        <repository>
-            <id>bintray-gelnyang-cayley-java</id>
-            <name>gelnyang-cayley-java</name>
-            <url>https://api.bintray.com/maven/gelnyang/cayley-java/cayley/;publish=1</url>
-        </repository>
-    </distributionManagement>
 
     <build>
         <plugins>

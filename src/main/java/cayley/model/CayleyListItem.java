@@ -10,5 +10,6 @@ import lombok.Data;
 public class CayleyListItem {
 
     private String id;
+    private String predicate;
 
 }
