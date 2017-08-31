@@ -56,4 +56,24 @@ public class CayleyClientTest {
             Assert.fail(e.getMessage());
         }
     }
+
+    @Test
+    public void testExist() {
+        try {
+            client.addPredicate("g1", "group", "u1");
+        } catch (CayleyException e) {
+            System.out.println(e.getMessage());
+        }
+        try {
+            boolean exist = client.existPredicate("g1", "group", "u1");
+            Assert.assertTrue(exist);
+
+            exist = client.existPredicate("g1", "group", "u" + System.currentTimeMillis());
+            Assert.assertFalse(exist);
+        } catch (CayleyException e)
+
+        {
+            Assert.fail(e.getMessage());
+        }
+    }
 }

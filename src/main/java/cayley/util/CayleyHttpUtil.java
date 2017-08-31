@@ -24,6 +24,7 @@ public class CayleyHttpUtil {
             HttpPost post = new HttpPost(url);
             StringEntity stringEntity = new StringEntity(command);
             post.setEntity(stringEntity);
+            post.addHeader("Content-Type","application/json;charset=utf-8");
 
             CloseableHttpResponse response = httpclient.execute(post);
             HttpEntity entity = response.getEntity();

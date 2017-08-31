@@ -116,14 +116,18 @@ public class CayleyClient {
     /** ---------------------- exists ---------------------------------------- */
 
     public boolean exists(String object) throws CayleyException {
-        return queryList(String.format("g.V('%s').All()", object)) != null;
+        return exist(queryList(String.format("g.V('%s').All()", object)));
     }
 
     public boolean existPredicate(String subject, String predicate, String object)
             throws CayleyException {
         String command =
                 String.format("g.V('%s').Out('%s').Is('%s').All()", subject, predicate, object);
-        return queryList(command) != null;
+        return exist(queryList(command));
+    }
+
+    private boolean exist(List<String> list) {
+        return list != null && list.size() > 0;
     }
 
     /** ---------------------- other ---------------------------------------- */
