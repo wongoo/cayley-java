@@ -22,9 +22,9 @@ public class CayleyHttpUtil {
         CloseableHttpClient httpclient = HttpClients.createDefault();
         try {
             HttpPost post = new HttpPost(url);
-            StringEntity stringEntity = new StringEntity(command);
+            StringEntity stringEntity = new StringEntity(command, "UTF-8");
             post.setEntity(stringEntity);
-            post.addHeader("Content-Type","application/json;charset=utf-8");
+            post.addHeader("Content-Type", "application/json;charset=utf-8");
 
             CloseableHttpResponse response = httpclient.execute(post);
             HttpEntity entity = response.getEntity();
